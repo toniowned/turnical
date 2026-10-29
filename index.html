@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Turni nel calendario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una colonna stretta, come un foglio di reparto: passi in ordine, poi l'elenco dei turni */
+:root {
+  --bg: #f6f5f1;
+  --card: #ffffff;
+  --ink: #1f2328;
+  --muted: #5d6470;
+  --line: #dedbd2;
+  --sheet: #f2b928;       /* il giallo del foglio turni */
+  --sheet-ink: #3a2c00;
+  --accent: #1d5fa8;
+  --accent-ink: #ffffff;
+  --rep: #7a3fb0;
+  --night: #24305e;
+  --warn-bg: #fff4d6;
+  --err: #b42318;
+  --err-bg: #fdecea;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171b; --card: #1e2127; --ink: #eceae4; --muted: #a2a7b0; --line: #343842;
+    --sheet: #e8b12a; --sheet-ink: #2b2000; --accent: #6aa8ec; --accent-ink: #0d1a2b;
+    --rep: #c39bf0; --night: #a9b6f0; --warn-bg: #3a3017; --err: #ff8f84; --err-bg: #3a1e1c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171b; --card: #1e2127; --ink: #eceae4; --muted: #a2a7b0; --line: #343842;
+  --sheet: #e8b12a; --sheet-ink: #2b2000; --accent: #6aa8ec; --accent-ink: #0d1a2b;
+  --rep: #c39bf0; --night: #a9b6f0; --warn-bg: #3a3017; --err: #ff8f84; --err-bg: #3a1e1c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { padding-top: 28px; display: flex; flex-direction: column; gap: 6px; }
+.tag {
+  align-self: flex-start; background: var(--sheet); color: var(--sheet-ink);
+  font: 500 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase;
+  padding: 6px 8px; border-radius: 4px;
+}
+h1 { font-size: 30px; line-height: 1.15; margin: 4px 0 0; text-wrap: balance; }
+.lead { margin: 0; color: var(--muted); max-width: 60ch; }
+section.step { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.step h2 { margin: 0; font-size: 18px; display: flex; gap: 10px; align-items: baseline; }
+.n { font: 500 13px/1 var(--font-mono); color: var(--muted); }
+.drop {
+  border: 2px dashed var(--line); border-radius: 8px; padding: 22px 16px; text-align: center;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; cursor: pointer;
+}
+.drop.over { border-color: var(--accent); }
+.drop strong { font-size: 17px; }
+.drop small { color: var(--muted); }
+.file-name { font-family: var(--font-mono); font-size: 13px; color: var(--muted); word-break: break-all; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.btn {
+  appearance: none; border: 1px solid transparent; border-radius: 8px; padding: 12px 16px;
+  font: 700 16px/1.2 var(--font-body); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn:focus-visible, .chip:focus-visible, select:focus-visible, .drop:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+select { font: 16px var(--font-body); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  appearance: none; min-width: 58px; padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  font: 500 16px/1 var(--font-mono); letter-spacing: .04em;
+}
+.chip[aria-pressed="true"] { background: var(--sheet); color: var(--sheet-ink); border-color: var(--sheet); }
+.msg { margin: 0; padding: 12px 14px; border-radius: 8px; font-size: 15px; }
+.msg.err { background: var(--err-bg); color: var(--err); }
+.msg.info { background: var(--warn-bg); color: var(--ink); }
+.summary { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 14px; }
+.summary b { color: var(--ink); font-variant-numeric: tabular-nums; }
+ol.turni { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ol.turni li { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.giorno { font: 500 14px/1.3 var(--font-mono); color: var(--muted); }
+.giorno b { display: block; color: var(--ink); font-size: 18px; font-variant-numeric: tabular-nums; }
+.giorno.fest b { color: var(--err); }
+.voci { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.voce { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
+.voce .nome { font-weight: 700; }
+.voce .ore { font: 14px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.voce.rep .nome { color: var(--rep); }
+.voce.notte .nome { color: var(--night); }
+.voce a { font-size: 14px; color: var(--accent); }
+.example { position: relative; opacity: .75; }
+.example::before { content: "Esempio"; position: absolute; top: -10px; right: 0; font: 500 11px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; background: var(--line); color: var(--muted); padding: 4px 6px; border-radius: 4px; }
+details { border-top: 1px solid var(--line); padding-top: 12px; }
+summary { cursor: pointer; font-weight: 700; }
+.note { color: var(--muted); font-size: 14px; margin: 0; }
+.note li { margin-bottom: 4px; }
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: background .15s, border-color .15s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="tag">Turni di reparto</span>
+    <h1>Turni nel calendario</h1>
+    <p class="lead">Carica il PDF dei turni del mese, scegli la tua sigla e aggiungi i tuoi turni al calendario del telefono o del computer.</p>
+  </header>
+
+  <section class="step" aria-labelledby="t1">
+    <h2 id="t1"><span class="n">1</span> PDF dei turni</h2>
+    <label class="drop" id="drop" tabindex="0" for="file">
+      <strong>Scegli il PDF</strong>
+      <small>oppure trascinalo qui. Il file resta sul tuo dispositivo.</small>
+      <span class="file-name" id="fileName"></span>
+    </label>
+    <input type="file" id="file" accept="application/pdf,.pdf">
+    <p class="msg err" id="err" hidden></p>
+  </section>
+
+  <section class="step" aria-labelledby="t2" id="s2">
+    <h2 id="t2"><span class="n">2</span> La tua sigla</h2>
+    <div class="row">
+      <label class="f" for="mese">Mese
+        <select id="mese"></select>
+      </label>
+      <label class="f" for="anno">Anno
+        <select id="anno"></select>
+      </label>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Sigla">
+      <p class="note">Le sigle compaiono dopo aver caricato il PDF.</p>
+    </div>
+  </section>
+
+  <section class="step" aria-labelledby="t3" id="s3">
+    <h2 id="t3"><span class="n">3</span> I tuoi turni</h2>
+    <div class="summary" id="summary"></div>
+    <div id="lista">
+      <ol class="turni example" aria-label="Esempio di turni">
+        <li><div class="giorno">lun<b>2</b></div><div class="voci">
+          <div class="voce"><span class="nome">Reparto mattina</span><span class="ore">08:00–14:00</span></div></div></li>
+        <li><div class="giorno">mar<b>3</b></div><div class="voci">
+          <div class="voce notte"><span class="nome">Notte reparto</span><span class="ore">20:00–08:00</span></div></div></li>
+        <li><div class="giorno fest">sab<b>7</b></div><div class="voci">
+          <div class="voce rep"><span class="nome">Reperibilità cardiologica</span><span class="ore">08:00–08:00 · 24 h</span></div></div></li>
+      </ol>
+    </div>
+    <div class="row" id="azioni" hidden>
+      <button class="btn btn-primary" id="add" type="button">Aggiungi al calendario</button>
+      <button class="btn btn-ghost" id="dl" type="button">Scarica file .ics</button>
+    </div>
+    <details id="gcal" hidden>
+      <summary>Usi Google Calendar? Aggiungi un turno alla volta</summary>
+      <p class="note">Ogni link apre Google Calendar con il turno già compilato: tocca Salva.</p>
+      <ol class="turni" id="gcalList"></ol>
+    </details>
+  </section>
+
+  <section class="step" aria-labelledby="t4">
+    <h2 id="t4">Da sapere</h2>
+    <ul class="note">
+      <li>Vanno nel calendario solo i turni delle celle bianche: reparto, servizi, ambulatori, sale e reperibilità. Congedi e indisponibilità no.</li>
+      <li>La reperibilità va dalle 20:00 alle 08:00 dal lunedì al venerdì, e 24 ore (08:00–08:00) il sabato, la domenica e i festivi.</li>
+      <li>Se esce un PDF corretto, ricaricalo e aggiungilo di nuovo: i turni cambiati si aggiornano. Un turno tolto va invece cancellato a mano dal calendario.</li>
+      <li>Controlla sempre l'elenco qui sopra con il PDF prima di aggiungerlo.</li>
+    </ul>
+  </section>
+
+  <footer>Il PDF viene letto nel browser e non viene inviato a nessuno.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>
+// ===== Lettura della tabella turni dal PDF (logica pura, senza DOM) =====
+var TURNI_CORE = (function () {
+  // Bordi sinistri delle colonne bianche, misurati sul PDF di riferimento
+  // (novembre 2026). Vengono riscalati sulle intestazioni di ogni PDF.
+  var REF_A = 92.5;   // x di "TURNI REPARTO"
+  var REF_B = 285.9;  // x di "REPERIBILITÀ"
+  var REF_FINE = 312.8; // inizio colonne gialle (congedi): escluse
+
+  var COLONNE = [
+    { x: 90.3,  k: 'rep-m',   nome: 'Reparto mattina',            da: '08:00', a: '14:00' },
+    { x: 99.8,  k: 'rep-p',   nome: 'Reparto pomeriggio',         da: '14:00', a: '20:00' },
+    { x: 108.8, k: 'notte',   nome: 'Notte reparto',              da: '20:00', a: '08:00' },
+    { x: 121.7, k: 'eco-m',   nome: 'Ecocardio interni',          da: '08:00', a: '14:00' },
+    { x: 132.9, k: 'eco-p',   nome: 'Ecocardio interni',          da: '14:00', a: '20:00' },
+    { x: 156.1, k: 'amb-eco', nome: 'Ambulatorio ecocardio',      da: '08:00', a: '14:00' },
+    { x: 171.1, k: 'amb-ch-m',nome: 'Ambulatorio chirurgico',     da: '08:00', a: '14:00' },
+    { x: 188.8, k: 'amb-ch-p',nome: 'Ambulatorio chirurgico',     da: '14:00', a: '18:00' },
+    { x: 203.8, k: 's1-m',    nome: 'Sala 1 mattina',             da: '08:00', a: '14:00' },
+    { x: 218.9, k: 's1-m',    nome: 'Sala 1 mattina',             da: '08:00', a: '14:00' },
+    { x: 234.3, k: 's1-p',    nome: 'Sala 1 pomeriggio',          da: '14:00', a: '20:00' },
+    { x: 247.7, k: 's1-p',    nome: 'Sala 1 pomeriggio',          da: '14:00', a: '20:00' },
+    { x: 262.7, k: 's2-m',    nome: 'Sala 2 mattina',             da: '08:00', a: '14:00' },
+    { x: 267.5, k: 's2-m',    nome: 'Sala 2 mattina',             da: '08:00', a: '14:00' },
+    { x: 272.2, k: 's2-p',    nome: 'Sala 2 pomeriggio',          da: '14:00', a: '20:00' },
+    { x: 276.9, k: 's2-p',    nome: 'Sala 2 pomeriggio',          da: '14:00', a: '20:00' },
+    { x: 281.6, k: 'rep-card',nome: 'Reperibilità cardiologica',          rep: true },
+    { x: 292.0, k: 'rep-ch1', nome: 'Reperibilità cardiochirurgica 1°',   rep: true },
+    { x: 301.4, k: 'rep-ch2', nome: 'Reperibilità cardiochirurgica 2°',   rep: true }
+  ];
+
+  var SIGLE_BASE = ['PC', 'GIA', 'ET', 'EA', 'SC', 'LP', 'AS', 'STE', 'STO', 'AT', 'GR', 'AD'];
+  var MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio',
+              'agosto','settembre','ottobre','novembre','dicembre'];
+  var GIORNI_RE = /(\d{1,2})\s*(lun|mar|mer|gio|ven|sab|dom)/i;
+
+  // spezza un item di testo in parole, stimando la x di ognuna
+  function tokenizza(items) {
+    var out = [];
+    items.forEach(function (it) {
+      var s = String(it.str || '');
+      if (!s.trim() || !(it.w > 0)) return;
+      var re = /\S+/g, m;
+      while ((m = re.exec(s))) {
+        out.push({
+          t: m[0],
+          x0: it.x + it.w * m.index / s.length,
+          x1: it.x + it.w * (m.index + m[0].length) / s.length,
+          y: it.y
+        });
+      }
+    });
+    return out;
+  }
+
+  // unisce frammenti attaccati sulla stessa riga (es. lettere singole)
+  function unisci(tokens) {
+    var t = tokens.slice().sort(function (p, q) { return (p.y - q.y) || (p.x0 - q.x0); });
+    var out = [];
+    t.forEach(function (tk) {
+      var l = out[out.length - 1];
+      if (l && Math.abs(l.y - tk.y) < 0.5 && tk.x0 - l.x1 < 1 && tk.x0 >= l.x0) {
+        l.t += tk.t; l.x1 = Math.max(l.x1, tk.x1);
+      } else out.push({ t: tk.t, x0: tk.x0, x1: tk.x1, y: tk.y });
+    });
+    return out;
+  }
+
+  // x di una parola chiave, anche se è attaccata ad altro testo
+  function ancora(tokens, parola) {
+    var best = null;
+    tokens.forEach(function (tk) {
+      var i = tk.t.toUpperCase().indexOf(parola);
+      if (i < 0) return;
+      var x = tk.x0 + (tk.x1 - tk.x0) * i / tk.t.length;
+      if (!best || tk.y < best.y - 1 || (Math.abs(tk.y - best.y) <= 1 && x < best.x)) best = { x: x, y: tk.y };
+    });
+    return best;
+  }
+
+  // divide "STEEA" in ["STE","EA"] usando le sigle note
+  function dividiSigle(t, note) {
+    var n = t.length, memo = {};
+    function rec(i) {
+      if (i === n) return [];
+      if (memo[i] !== undefined) return memo[i];
+      memo[i] = null;
+      for (var L = 4; L >= 2; L--) {
+        var p = t.substr(i, L);
+        if (p.length === L && note.indexOf(p) >= 0) {
+          var r = rec(i + L);
+          if (r) { memo[i] = [{ s: p, i: i }].concat(r); break; }
+        }
+      }
+      return memo[i];
+    }
+    return rec(0);
+  }
+
+  function leggi(items, nomeFile) {
+    var tokens = unisci(tokenizza(items));
+    var testoTutto = tokens.map(function (t) { return t.t; }).join(' ');
+
+    // sigle note: dalla legenda (es. "PC=DR.SSA") più quelle di base
+    var note = SIGLE_BASE.slice();
+    var leg = /([A-Z]{2,4})\s*=/g, m;
+    while ((m = leg.exec(testoTutto))) if (note.indexOf(m[1]) < 0) note.push(m[1]);
+
+    // scala orizzontale dalle intestazioni
+    var a = ancora(tokens, 'REPERIBILIT');
+    var tr = null;
+    if (a) {
+      tokens.forEach(function (tk) {
+        var i = tk.t.toUpperCase().indexOf('TURNI');
+        if (i < 0 || Math.abs(tk.y - a.y) > 3) return;
+        var x = tk.x0 + (tk.x1 - tk.x0) * i / tk.t.length;
+        if (!tr || x < tr.x) tr = { x: x, y: tk.y };
+      });
+    }
+    var k = 1, off = 0;
+    if (a && tr && a.x - tr.x > 50) { k = (a.x - tr.x) / (REF_B - REF_A); off = tr.x - REF_A * k; }
+    var map = function (x) { return off + x * k; };
+    var inizio = map(COLONNE[0].x), fine = map(REF_FINE);
+    var bordi = COLONNE.map(function (c) { return map(c.x); });
+
+    // separo la data quando è attaccata al primo turno (es. "1domGR")
+    var tk2 = [];
+    tokens.forEach(function (tk) {
+      if (tk.x0 < inizio && tk.x1 > inizio) {
+        var mm = tk.t.match(/^((?:\d{1,2}\s*)?(?:lun|mar|mer|gio|ven|sab|dom))(.+)$/i);
+        if (mm) {
+          var L = tk.t.length, cut = mm[1].length, xc = tk.x0 + (tk.x1 - tk.x0) * cut / L;
+          tk2.push({ t: mm[1], x0: tk.x0, x1: xc, y: tk.y });
+          tk2.push({ t: mm[2], x0: xc, x1: tk.x1, y: tk.y });
+          return;
+        }
+      }
+      tk2.push(tk);
+    });
+    tokens = tk2;
+
+    // righe: raggruppo per y
+    var ordinati = tokens.slice().sort(function (p, q) { return p.y - q.y; });
+    var righe = [];
+    ordinati.forEach(function (tk) {
+      var r = righe[righe.length - 1];
+      if (r && Math.abs(tk.y - r.y) <= 2.5) r.tk.push(tk); else righe.push({ y: tk.y, tk: [tk] });
+    });
+
+    var giorni = [];
+    righe.forEach(function (r) {
+      r.tk.sort(function (p, q) { return p.x0 - q.x0; });
+      var sx = '', prevX = null;
+      r.tk.forEach(function (t) {
+        if ((t.x0 + t.x1) / 2 >= inizio) return;
+        if (prevX !== null && t.x0 - prevX > 1.2) sx += ' ';
+        sx += t.t; prevX = t.x1;
+      });
+      var gm = sx.replace(/\s+/g, ' ').match(/(\d{1,2})\s*(lun|mar|mer|gio|ven|sab|dom)/i);
+      if (!gm) return;
+      var celle = {};
+      r.tk.forEach(function (t) {
+        var c = (t.x0 + t.x1) / 2;
+        if (c < inizio - 1 || t.x0 >= fine) return;
+        var su = t.t.toUpperCase().replace(/[^A-Z]/g, '');
+        if (!su) return;
+        var pezzi = (note.indexOf(su) >= 0 ? null : dividiSigle(su, note)) || [{ s: su, i: 0 }];
+        pezzi.forEach(function (p) {
+          var cx = t.x0 + (t.x1 - t.x0) * (p.i + p.s.length / 2) / su.length;
+          if (cx >= fine) return;
+          var col = -1;
+          for (var j = bordi.length - 1; j >= 0; j--) if (cx >= bordi[j]) { col = j; break; }
+          if (col < 0) return;
+          if (!celle[col]) celle[col] = p.s;
+        });
+      });
+      giorni.push({ giorno: Number(gm[1]), gs: gm[2].toLowerCase(), celle: celle });
+    });
+
+    // mese e anno: lettere verticali a sinistra, poi nome file
+    var sinistra = tokens.filter(function (t) { return (t.x0 + t.x1) / 2 < map(77) && t.t.length <= 4; })
+      .sort(function (p, q) { return p.y - q.y; }).map(function (t) { return t.t; }).join('').toLowerCase();
+    var cerca = function (s) {
+      var r = new RegExp('(' + MESI.join('|') + ')\\D{0,3}(20\\d\\d)', 'i').exec(String(s || '').toLowerCase());
+      return r ? { mese: MESI.indexOf(r[1].toLowerCase()), anno: Number(r[2]) } : null;
+    };
+    var ma = cerca(sinistra) || cerca(nomeFile) || cerca(testoTutto);
+
+    var sigleTrovate = {};
+    giorni.forEach(function (g) { Object.keys(g.celle).forEach(function (c) { sigleTrovate[g.celle[c]] = 1; }); });
+
+    return { giorni: giorni, mese: ma ? ma.mese : null, anno: ma ? ma.anno : null,
+             sigle: Object.keys(sigleTrovate).sort(), scala: k };
+  }
+
+  // ---- festivi nazionali ----
+  function pasqua(y) {
+    var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4,
+        f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
+        h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), kk = c % 4,
+        l = (32 + 2 * e + 2 * i - h - kk) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+        mese = Math.floor((h + l - 7 * m + 114) / 31), giorno = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(y, mese - 1, giorno);
+  }
+  function festivo(d, extra) {
+    var md = (d.getMonth() + 1) + '-' + d.getDate();
+    var fissi = ['1-1', '1-6', '4-25', '5-1', '6-2', '8-15', '11-1', '12-8', '12-25', '12-26'].concat(extra || []);
+    if (fissi.indexOf(md) >= 0) return true;
+    var p = pasqua(d.getFullYear()), lun = new Date(p.getFullYear(), p.getMonth(), p.getDate() + 1);
+    return d.getMonth() === lun.getMonth() && d.getDate() === lun.getDate();
+  }
+
+  // ---- eventi per una sigla ----
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); }
+
+  function eventi(dati, sigla, mese, anno, extraFestivi) {
+    var out = [], visti = {};
+    dati.giorni.forEach(function (g) {
+      var data = new Date(anno, mese, g.giorno);
+      if (data.getMonth() !== mese) return;
+      Object.keys(g.celle).forEach(function (ci) {
+        if (g.celle[ci] !== sigla) return;
+        var c = COLONNE[ci], uid = sigla + '-' + ymd(data) + '-' + c.k;
+        if (visti[uid]) return;
+        visti[uid] = 1;
+        var da = c.da, a = c.a, dow = data.getDay();
+        if (c.rep) {
+          var lungo = dow === 0 || dow === 6 || festivo(data, extraFestivi);
+          da = lungo ? '08:00' : '20:00';
+          a = '08:00';
+        }
+        var s = new Date(anno, mese, g.giorno, +da.slice(0, 2), +da.slice(3));
+        var e = new Date(anno, mese, g.giorno, +a.slice(0, 2), +a.slice(3));
+        if (e <= s) e.setDate(e.getDate() + 1);
+        out.push({ uid: uid, nome: c.nome, inizio: s, fine: e, chiave: c.k });
+      });
+    });
+    out.sort(function (p, q) { return p.inizio - q.inizio || p.nome.localeCompare(q.nome); });
+    return out;
+  }
+
+  function locale(d) { return ymd(d) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00'; }
+  function utcStamp(d) {
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' +
+      pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+  }
+
+  function ics(evs, sigla, etichettaMese) {
+    var now = utcStamp(new Date());
+    var L = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Turni reparto//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'X-WR-CALNAME:Turni ' + sigla, 'X-WR-TIMEZONE:Europe/Rome',
+      'BEGIN:VTIMEZONE', 'TZID:Europe/Rome',
+      'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST',
+      'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+      'BEGIN:STANDARD', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET',
+      'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+      'END:VTIMEZONE'
+    ];
+    evs.forEach(function (e) {
+      L.push('BEGIN:VEVENT', 'UID:' + e.uid + '@turni-reparto', 'DTSTAMP:' + now,
+        'DTSTART;TZID=Europe/Rome:' + locale(e.inizio), 'DTEND;TZID=Europe/Rome:' + locale(e.fine),
+        'SUMMARY:' + e.nome, 'DESCRIPTION:Turni ' + etichettaMese + ' (' + sigla + ')', 'END:VEVENT');
+    });
+    L.push('END:VCALENDAR');
+    return L.join('\r\n') + '\r\n';
+  }
+
+  function linkGoogle(e, sigla) {
+    var fmt = function (d) { return locale(d); };
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' +
+      encodeURIComponent(e.nome) + '&dates=' + fmt(e.inizio) + '/' + fmt(e.fine) +
+      '&ctz=Europe/Rome&details=' + encodeURIComponent('Turno ' + sigla);
+  }
+
+  return { leggi: leggi, eventi: eventi, ics: ics, linkGoogle: linkGoogle, COLONNE: COLONNE, MESI: MESI, festivo: festivo };
+})();
+if (typeof module !== 'undefined') module.exports = TURNI_CORE;
+
+</script>
+<script>
+(function () {
+  // Festivi in più (oltre a quelli nazionali), formato "mese-giorno", es. "7-15" per Santa Rosalia
+  var FESTIVI_EXTRA = [];
+
+  var C = TURNI_CORE;
+  var $ = function (id) { return document.getElementById(id); };
+  var stato = { dati: null, sigla: null, eventi: [], nomeFile: '' };
+  var GS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+
+  try {
+    if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  } catch (e) {}
+
+  // mesi e anni
+  C.MESI.forEach(function (m, i) {
+    var o = document.createElement('option'); o.value = i; o.textContent = m.charAt(0).toUpperCase() + m.slice(1); $('mese').appendChild(o);
+  });
+  var oggi = new Date();
+  for (var y = oggi.getFullYear() - 1; y <= oggi.getFullYear() + 2; y++) {
+    var o = document.createElement('option'); o.value = y; o.textContent = y; $('anno').appendChild(o);
+  }
+  $('mese').value = (oggi.getMonth() + 1) % 12;
+  $('anno').value = oggi.getMonth() === 11 ? oggi.getFullYear() + 1 : oggi.getFullYear();
+
+  function errore(t) { $('err').textContent = t; $('err').hidden = !t; }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ora(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+  async function leggiPdf(file) {
+    errore('');
+    $('fileName').textContent = file.name;
+    if (!window.pdfjsLib) { errore('Non riesco a caricare il lettore PDF. Controlla la connessione a internet e riapri la pagina.'); return; }
+    try {
+      var buf = await file.arrayBuffer();
+      var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+      var page = await doc.getPage(1);
+      var vp = page.getViewport({ scale: 1 });
+      var tc = await page.getTextContent();
+      var items = tc.items.filter(function (it) { return it.str; }).map(function (it) {
+        return { str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width };
+      });
+      var dati = C.leggi(items, file.name);
+      if (!dati.giorni.length) {
+        errore('Non trovo la tabella dei turni in questo PDF. Serve il PDF esportato da Excel, non una scansione o una foto.');
+        stato.dati = null; disegna(); return;
+      }
+      stato.dati = dati; stato.nomeFile = file.name;
+      if (dati.mese !== null) { $('mese').value = dati.mese; $('anno').value = dati.anno; }
+      sigle();
+      disegna();
+    } catch (e) {
+      errore('Non riesco ad aprire questo file. Controlla che sia il PDF dei turni e riprova.');
+    }
+  }
+
+  function sigle() {
+    var box = $('chips'); box.innerHTML = '';
+    var salvata = null;
+    try { salvata = localStorage.getItem('sigla'); } catch (e) {}
+    if (stato.dati.sigle.indexOf(stato.sigla) < 0) stato.sigla = stato.dati.sigle.indexOf(salvata) >= 0 ? salvata : null;
+    stato.dati.sigle.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = s;
+      b.setAttribute('aria-pressed', s === stato.sigla ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        stato.sigla = s;
+        try { localStorage.setItem('sigla', s); } catch (e) {}
+        sigle(); disegna();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function etichettaMese() {
+    return C.MESI[+$('mese').value] + ' ' + $('anno').value;
+  }
+
+  function disegna() {
+    var lista = $('lista'), sum = $('summary');
+    $('azioni').hidden = true; $('gcal').hidden = true; sum.innerHTML = '';
+    if (!stato.dati) return;
+    lista.innerHTML = '';
+    var mese = +$('mese').value, anno = +$('anno').value;
+    if (!stato.sigla) {
+      sum.innerHTML = 'Letti <b>' + stato.dati.giorni.length + '</b> giorni di ' + etichettaMese() + '. Scegli la tua sigla.';
+      return;
+    }
+    var ev = C.eventi(stato.dati, stato.sigla, mese, anno, FESTIVI_EXTRA);
+    stato.eventi = ev;
+    sum.innerHTML = '<span><b>' + stato.sigla + '</b> · ' + etichettaMese() + '</span><span><b>' + ev.length + '</b> turni</span>';
+    if (!ev.length) {
+      lista.innerHTML = '<p class="msg info">Nessun turno trovato per ' + stato.sigla + ' in questo PDF.</p>';
+      return;
+    }
+    var ol = document.createElement('ol'); ol.className = 'turni';
+    var gol = $('gcalList'); gol.innerHTML = '';
+    var perGiorno = {};
+    ev.forEach(function (e) { var k = e.inizio.getDate(); (perGiorno[k] = perGiorno[k] || []).push(e); });
+    Object.keys(perGiorno).map(Number).sort(function (a, b) { return a - b; }).forEach(function (g) {
+      var d = new Date(anno, mese, g);
+      var fest = d.getDay() === 0 || d.getDay() === 6 || C.festivo(d, FESTIVI_EXTRA);
+      [ol, gol].forEach(function (dest, idx) {
+        var li = document.createElement('li');
+        var gd = document.createElement('div'); gd.className = 'giorno' + (fest ? ' fest' : '');
+        gd.textContent = GS[d.getDay()];
+        var b = document.createElement('b'); b.textContent = g; gd.appendChild(b);
+        var voci = document.createElement('div'); voci.className = 'voci';
+        perGiorno[g].forEach(function (e) {
+          var v = document.createElement('div');
+          v.className = 'voce' + (e.chiave.indexOf('rep-') === 0 && e.chiave !== 'rep-m' && e.chiave !== 'rep-p' ? ' rep' : '') + (e.chiave === 'notte' ? ' notte' : '');
+          var n = document.createElement('span'); n.className = 'nome'; n.textContent = e.nome;
+          var o = document.createElement(idx ? 'a' : 'span');
+          var durata = Math.round((e.fine - e.inizio) / 36e5);
+          o.textContent = ora(e.inizio) + '–' + ora(e.fine) + (durata >= 24 ? ' · 24 h' : '');
+          if (idx) { o.href = C.linkGoogle(e, stato.sigla); o.target = '_blank'; o.rel = 'noopener'; o.textContent = 'Aggiungi ' + o.textContent; }
+          else o.className = 'ore';
+          v.appendChild(n); v.appendChild(o); voci.appendChild(v);
+        });
+        li.appendChild(gd); li.appendChild(voci); dest.appendChild(li);
+      });
+    });
+    lista.appendChild(ol);
+    $('azioni').hidden = false; $('gcal').hidden = false;
+  }
+
+  function testoIcs() { return C.ics(stato.eventi, stato.sigla, etichettaMese()); }
+  function nomeIcs() { return 'turni-' + stato.sigla + '-' + C.MESI[+$('mese').value] + '-' + $('anno').value + '.ics'; }
+
+  function scarica() {
+    var blob = new Blob([testoIcs()], { type: 'text/calendar;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = nomeIcs();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  $('add').addEventListener('click', function () {
+    if (!stato.eventi.length) return;
+    if (iOS) location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(testoIcs());
+    else scarica();
+  });
+  $('dl').addEventListener('click', function () { if (stato.eventi.length) scarica(); });
+
+  $('file').addEventListener('change', function () { if (this.files[0]) leggiPdf(this.files[0]); });
+  ['mese', 'anno'].forEach(function (id) { $(id).addEventListener('change', disegna); });
+  var drop = $('drop');
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } });
+  ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { var f = e.dataTransfer.files[0]; if (f) leggiPdf(f); });
+})();
+</script>
+</body>
+</html>
